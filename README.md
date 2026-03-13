@@ -34,7 +34,32 @@ BiomassScore = 0.45 * NDVI_norm + 0.35 * EVI_norm + 0.20 * NDMI_norm
 - `GET /ecology/ecoregion`
 - `GET /health`
 
-## Run locally
+## How to test the app
+
+### Option A: Test with Docker Compose (recommended)
+
+```bash
+docker compose up --build
+```
+
+This starts:
+- API at `http://localhost:8000`
+- Streamlit web app at `http://localhost:8501`
+- PostGIS at `localhost:5432`
+
+Then run an end-to-end smoke test from another terminal:
+
+```bash
+bash scripts/smoke_test.sh
+```
+
+You can also pass a custom API base URL:
+
+```bash
+bash scripts/smoke_test.sh http://localhost:8000
+```
+
+### Option B: Test locally without Docker
 
 ```bash
 python -m venv .venv
@@ -46,14 +71,24 @@ uvicorn app.api.main:app --reload
 In another terminal:
 
 ```bash
+source .venv/bin/activate
 streamlit run app/web/streamlit_app.py
 ```
 
-## Run with Docker Compose
+In a third terminal, run smoke checks:
 
 ```bash
-docker compose up --build
+bash scripts/smoke_test.sh
 ```
+
+## Run automated tests
+
+```bash
+python -m pytest -q app/tests/test_index_service.py
+python -m pytest -q app/tests/test_api.py
+```
+
+If dependencies are unavailable in your environment, use Docker Compose testing path above.
 
 ## Notes
 
