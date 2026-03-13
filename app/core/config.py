@@ -13,7 +13,15 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+psycopg://postgres:postgres@db:5432/satellite"
 
+    # CORS (comma-separated list in env)
+    cors_origins: str = "*"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+    def get_cors_origins(self) -> list[str]:
+        if self.cors_origins.strip() == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 settings = Settings()
