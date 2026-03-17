@@ -4,33 +4,59 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Satellite Ecological Analysis Platform</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
     <style>
       :root { font-family: Inter, system-ui, Arial, sans-serif; }
       body { margin: 0; background: #f5f7fb; color: #172033; }
-      header { background: #172033; color: white; padding: 1rem 1.2rem; }
-      main { max-width: 1100px; margin: 1rem auto; padding: 0 1rem; }
-      .layout { display: grid; grid-template-columns: 320px 1fr; gap: 1rem; }
+      header { background: #172033; color: white; padding: 0.8rem 1.2rem; }
+      h1 { font-size: 1.1rem; margin: 0; }
+      main { max-width: 1200px; margin: 1rem auto; padding: 0 1rem; }
+      .layout { display: grid; grid-template-columns: 340px 1fr; gap: 1rem; }
       .card { background: white; border-radius: 12px; padding: 1rem; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
-      label { font-weight: 600; display: block; margin-top: .75rem; }
-      input, select, textarea, button { width: 100%; padding: .55rem; margin-top: .35rem; border-radius: 8px; border: 1px solid #cbd4e6; box-sizing: border-box; }
+      label { font-weight: 600; display: block; margin-top: .65rem; }
+      input, select, button { width: 100%; padding: .55rem; margin-top: .35rem; border-radius: 8px; border: 1px solid #cbd4e6; box-sizing: border-box; }
       button { background: #1f6feb; color: white; border: none; font-weight: 600; cursor: pointer; margin-top: 1rem; }
+      button.secondary { background: #4a5568; }
       .kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; margin-bottom: .75rem; }
       .kpi { background:#f3f7ff; border:1px solid #d7e3ff; border-radius:10px; padding:.6rem; }
       .kpi h4{margin:.1rem 0; font-size:.8rem; color:#355}
       .kpi p{margin:.2rem 0; font-size:1.1rem; font-weight:700}
-      pre { white-space: pre-wrap; }
+      pre { white-space: pre-wrap; background: #0f172a; color: #d5e2ff; border-radius: 10px; padding: .7rem; min-height: 60px; }
       .muted { color: #5f6d89; font-size: .9rem; }
-      @media (max-width: 900px){ .layout{grid-template-columns:1fr;} .kpis{grid-template-columns:repeat(2,1fr);} }
+      #map { height: 320px; border-radius: 10px; border: 1px solid #d8e0f0; }
+      .row { display:grid; grid-template-columns: 1fr 1fr; gap:.6rem; }
+      a.report-link { display:inline-block; margin-top:.6rem; color:#1f6feb; }
+      @media (max-width: 980px){ .layout{grid-template-columns:1fr;} .kpis{grid-template-columns:repeat(2,1fr);} }
     </style>
   </head>
   <body>
-    <header><h2>Satellite Ecological Analysis Platform (GitHub Pages UI)</h2></header>
+    <header>
+      <h1>Satellite Ecological Analysis Platform — Web MVP</h1>
+    </header>
+
     <main class="layout">
       <section class="card">
-        <h3>Inputs</h3>
-        <p class="muted">Set your API URL to your deployed FastAPI backend.</p>
+        <h3>Run Analysis</h3>
+        <p class="muted">Use map click or manual coordinates. This static UI can be hosted on GitHub Pages.</p>
+
         <label>API Base URL</label>
         <input id="apiBase" placeholder="https://your-api.example.com" />
+
+        <div class="row">
+          <div>
+            <label>Latitude</label>
+            <input id="lat" type="number" step="0.000001" value="-1.286389" />
+          </div>
+          <div>
+            <label>Longitude</label>
+            <input id="lon" type="number" step="0.000001" value="36.817223" />
+          </div>
+        </div>
 
         <label>Input Type</label>
         <select id="inputType">
@@ -38,21 +64,21 @@
           <option value="place_name">place_name</option>
         </select>
 
-        <label>Latitude</label>
-        <input id="lat" type="number" step="0.000001" value="-1.286389" />
-
-        <label>Longitude</label>
-        <input id="lon" type="number" step="0.000001" value="36.817223" />
-
-        <label>Place Name (optional)</label>
+        <label>Place Name (for place_name mode)</label>
         <input id="place" type="text" placeholder="Nairobi" />
 
+        <button id="healthBtn" class="secondary">Check API Health</button>
         <button id="runBtn">Run Analysis</button>
+
+        <p id="status" class="muted">Ready.</p>
       </section>
 
       <section class="card">
+        <h3>Area Map</h3>
+        <div id="map"></div>
+        <p class="muted">Tip: click map to set coordinates.</p>
+
         <h3>Results</h3>
-        <div id="status" class="muted">No analysis run yet.</div>
         <div class="kpis" id="kpis"></div>
 
         <h4>Land Cover</h4>
@@ -60,64 +86,134 @@
 
         <h4>Interpretation</h4>
         <pre id="interpretation">-</pre>
+
+        <h4>Ecoregion Lookup</h4>
+        <pre id="ecoregion">-</pre>
+
+        <a id="reportLink" class="report-link" href="#" style="display:none;" target="_blank" rel="noopener">Open generated report artifact</a>
       </section>
     </main>
 
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
     <script>
-      const apiBaseInput = document.getElementById('apiBase');
-      const qApiBase = new URLSearchParams(window.location.search).get('apiBase');
-      const defaultApi = qApiBase || localStorage.getItem('apiBase') || 'http://localhost:8000';
-      apiBaseInput.value = defaultApi;
+      const el = (id) => document.getElementById(id);
+      const statusEl = el('status');
+      const reportLink = el('reportLink');
 
-      function setStatus(message, isError = false) {
-        const el = document.getElementById('status');
-        el.textContent = message;
-        el.style.color = isError ? '#b00020' : '#5f6d89';
+      const queryApi = new URLSearchParams(window.location.search).get('apiBase');
+      const apiBase = queryApi || localStorage.getItem('apiBase') || 'http://localhost:8000';
+      el('apiBase').value = apiBase;
+
+      const map = L.map('map').setView([Number(el('lat').value), Number(el('lon').value)], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      let marker = L.marker([Number(el('lat').value), Number(el('lon').value)]).addTo(map);
+
+      function setStatus(msg, err=false) {
+        statusEl.textContent = msg;
+        statusEl.style.color = err ? '#b00020' : '#5f6d89';
+      }
+
+      function currentApi() {
+        const base = el('apiBase').value.replace(/\/$/, '');
+        localStorage.setItem('apiBase', base);
+        return base;
+      }
+
+      function updateMarker(lat, lon) {
+        marker.setLatLng([lat, lon]);
+        map.panTo([lat, lon]);
       }
 
       function setKpis(metrics) {
-        const kpis = document.getElementById('kpis');
-        if (!metrics) { kpis.innerHTML = ''; return; }
-        kpis.innerHTML = [
+        const kpis = el('kpis');
+        if (!metrics) {
+          kpis.innerHTML = '';
+          return;
+        }
+        const items = [
           ['NDVI', metrics.ndvi],
           ['EVI', metrics.evi],
           ['NDMI', metrics.ndmi],
           ['Biomass', `${metrics.biomass_score.toFixed(2)} (${metrics.biomass_category})`],
-        ].map(([k,v]) => `<div class="kpi"><h4>${k}</h4><p>${typeof v === 'number' ? v.toFixed(2) : v}</p></div>`).join('');
+        ];
+        kpis.innerHTML = items.map(([k, v]) => (
+          `<div class="kpi"><h4>${k}</h4><p>${typeof v === 'number' ? v.toFixed(2) : v}</p></div>`
+        )).join('');
       }
 
-      document.getElementById('runBtn').addEventListener('click', async () => {
-        const apiBase = apiBaseInput.value.replace(/\/$/, '');
-        localStorage.setItem('apiBase', apiBase);
+      async function jsonFetch(url, options = {}) {
+        const response = await fetch(url, options);
+        const text = await response.text();
+        if (!response.ok) {
+          throw new Error(text || `HTTP ${response.status}`);
+        }
+        return text ? JSON.parse(text) : {};
+      }
 
+      map.on('click', (event) => {
+        const { lat, lng } = event.latlng;
+        el('lat').value = lat.toFixed(6);
+        el('lon').value = lng.toFixed(6);
+        updateMarker(lat, lng);
+      });
+
+      el('lat').addEventListener('change', () => updateMarker(Number(el('lat').value), Number(el('lon').value)));
+      el('lon').addEventListener('change', () => updateMarker(Number(el('lat').value), Number(el('lon').value)));
+
+      el('healthBtn').addEventListener('click', async () => {
+        try {
+          setStatus('Checking API health...');
+          const health = await jsonFetch(`${currentApi()}/health`);
+          setStatus(`API health: ${health.status}`);
+        } catch (error) {
+          setStatus(`API health failed: ${error.message}`, true);
+        }
+      });
+
+      el('runBtn').addEventListener('click', async () => {
         const payload = {
-          input_type: document.getElementById('inputType').value,
-          latitude: Number(document.getElementById('lat').value),
-          longitude: Number(document.getElementById('lon').value),
-          location_query: document.getElementById('place').value || null,
+          input_type: el('inputType').value,
+          latitude: Number(el('lat').value),
+          longitude: Number(el('lon').value),
+          location_query: el('place').value || null,
         };
 
-        setStatus('Running analysis...');
+        reportLink.style.display = 'none';
         setKpis(null);
+        el('landCover').textContent = '-';
+        el('interpretation').textContent = '-';
+        el('ecoregion').textContent = '-';
 
         try {
-          const response = await fetch(`${apiBase}/analysis/run`, {
+          setStatus('Running analysis...');
+          const base = currentApi();
+          const analysis = await jsonFetch(`${base}/analysis/run`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           });
 
-          if (!response.ok) {
-            throw new Error(await response.text());
-          }
+          setStatus(`Analysis completed: ${analysis.analysis_id}`);
+          setKpis(analysis.metrics);
+          el('landCover').textContent = JSON.stringify(analysis.metrics.land_cover, null, 2);
+          el('interpretation').textContent = analysis.interpretation || '-';
 
-          const data = await response.json();
-          setStatus(`Completed: ${data.analysis_id}`);
-          setKpis(data.metrics);
-          document.getElementById('landCover').textContent = JSON.stringify(data.metrics.land_cover, null, 2);
-          document.getElementById('interpretation').textContent = data.interpretation || '-';
+          const eco = await jsonFetch(`${base}/ecology/ecoregion?latitude=${payload.latitude}&longitude=${payload.longitude}`);
+          el('ecoregion').textContent = JSON.stringify(eco, null, 2);
+
+          const report = await jsonFetch(`${base}/analysis/${analysis.analysis_id}/report`);
+          reportLink.href = `${base}/${report.download_url}`.replace('/./', '/');
+          reportLink.style.display = 'inline-block';
         } catch (error) {
-          setStatus(`Request failed. Check API URL and CORS. ${error}`, true);
+          setStatus(`Request failed. Check API URL, CORS, and backend availability. ${error.message}`, true);
         }
       });
     </script>

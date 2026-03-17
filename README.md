@@ -37,7 +37,7 @@ BiomassScore = 0.45 * NDVI_norm + 0.35 * EVI_norm + 0.20 * NDMI_norm
 
 ## Make the app usable on GitHub Pages
 
-A static web UI is provided in `docs/index.html` and is deployed with GitHub Actions (`.github/workflows/deploy-pages.yml`).
+A functional browser UI is provided in `docs/index.html` (with interactive map + API integration) and is deployed with GitHub Actions (`.github/workflows/deploy-pages.yml`). A root `index.html` redirects users to this app for convenience.
 
 ### 1) Enable Pages in your repo
 
@@ -64,7 +64,8 @@ After deployment, open:
 
 In the UI:
 - Set **API Base URL** to your deployed backend (e.g. `https://your-api.example.com`)
-- Run analysis directly from the browser
+- Optionally click the map to set coordinates
+- Use **Check API Health** then **Run Analysis** to get KPIs, ecoregion, and report link
 
 You can also prefill the API URL via query string:
 
